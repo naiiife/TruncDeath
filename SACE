@@ -1,0 +1,238 @@
+#' estimate the conditional survivor average causal effect
+#'
+#'@param Z Treatment assignment. A binary vector, 1 for active treatment and 0 for control.
+#'@param S Survival status. A binary vector, 1 for survival and 0 for death.
+#'@param Y Primary outcome, which can be binary or continuous.
+#'@param X Covariates matrix.
+#'@param V Substitutional variable. A binary vector. The substitutional variable should be directly related with survival but not directly related with outcome.
+#'@param rho Optional. A sensitivity parameter for the nondifferential substitution.
+#'@param subset Optional. Which subset of data to use.
+#'@param need.variance Optional. Whether variance is needed.
+#'@param alpha Optional. Significance level when calculating the confidence intervals. Only needed if variance is needed.
+#'@param cond Optional. If we want the conditional survivor average causal effect, one can let cond be a covariates matrix to condition on. 
+#'If cond=NULL, the function would return the overall survivor average causal effect.
+#'@param method Optional. Whether we need robust estimation of the conditional survivor average causal effect.
+
+
+require('tbd')
+
+expit <- function(x) exp(x)/(1+exp(x))
+logit <- function(x) log(x/(1-x))
+
+SACE <- function(Z,S,Y,X,V,need.variance=FALSE,rho=1,kap=1,
+                 alpha=0.05,subset=NULL,cond=NULL,method='robust'){
+  N = length(Z)
+  if (is.null(subset)) subset=1:N
+  Z = Z[subset]
+  S = S[subset]
+  Y = Y[subset]
+  V = V[subset]
+  N = length(Z)
+  if (is.null(X)) {
+    X=as.matrix(rep(1,N))
+  } else {
+    X = X[subset,]
+  }
+  mX = colMeans(X)
+  X = X - rep(1,N)%*%t(mX)
+  ZV = Z*V
+  ZX = Z*X
+  m.S <- glm(S~., family='binomial', data=data.frame(S,Z,X,ZX,V,ZV))
+  if (length(unique(Y))<=2) {
+    m.Y <- glm(Y~., family='binomial', data=data.frame(Y,Z,X,ZX,V,ZV)[S==1,])
+    m.Y0 <- glm(Y~., family='binomial', data=data.frame(Y,X)[S==1&Z==0,])
+  } else {
+    m.Y <- glm(Y~., data=data.frame(Y,Z,X,ZX,V,ZV)[S==1,])
+    m.Y0 <- glm(Y~., data=data.frame(Y,X)[S==1&Z==0,])
+  }
+  fit.S.V1 <- predict(m.S, newdata=data.frame(S,Z=1,X,X,V=1,ZV=1), type='response')
+  fit.S.V0 <- predict(m.S, newdata=data.frame(S,Z=1,X,X,V=0,ZV=0), type='response')
+  fit.S0.V1 <- predict(m.S, newdata=data.frame(S,Z=0,X,X-X,V=1,ZV=0), type='response')
+  fit.S0.V0 <- predict(m.S, newdata=data.frame(S,Z=0,X,X-X,V=0,ZV=0), type='response')
+  fit.Y1.V1 <- predict(m.Y, newdata=data.frame(Y,Z=1,X,X,V=1,ZV=1), type='response')
+  fit.Y1.V0 <- predict(m.Y, newdata=data.frame(Y,Z=1,X,X,V=0,ZV=0), type='response')
+  fit.Y1 <- predict(m.Y, newdata=data.frame(Y,Z=1,X,X,V,ZV=V), type='response')
+  fit.Y0 <- predict(m.Y, newdata=data.frame(Y,Z=0,X,X-X,V,ZV=0), type='response')
+  mu1X <- (rho*fit.S.V1*fit.Y1.V1*(1-fit.S.V0) - fit.S.V0*fit.Y1.V0*(1-fit.S.V1))/
+    (rho*fit.S.V1*(1-fit.S.V0) - fit.S.V0*(1-fit.S.V1))
+  mu0X <- fit.Y0
+  if (kap!=1){
+    fit.Y0.V1 <- predict(m.Y, newdata=data.frame(Y,Z=0,X,X-X,V=1,ZV=0), type='response')
+    fit.Y0.V0 <- predict(m.Y, newdata=data.frame(Y,Z=0,X,X-X,V=0,ZV=0), type='response') 
+    mu0X <- (kap*fit.Y0.V1-fit.Y0.V0)/(kap-1)
+  }
+  
+  m.Z <- glm(Z~., family='binomial', data=data.frame(Z,V,X))
+  fit.Z <- predict(m.Z, newdata=data.frame(Z,V,X), type='response')
+  fit.S0 <- predict(m.S, newdata=data.frame(S,Z=0,X,X-X,V,ZV=0), type='response')
+  m.Y1.V1.np <- loess(Y~.,data=data.frame(Y,X),subset=(V==1&Z==1&S==1),degree=1)
+  fit.Y1.V1.np <- predict(m.Y1.V1.np,newdata=data.frame(Y,X))
+  m.Y1.V0.np <- loess(Y~.,data=data.frame(Y,X),subset=(V==0&Z==1&S==1),degree=1)
+  fit.Y1.V0.np <- predict(m.Y1.V0.np,newdata=data.frame(Y,X))
+  mu1X.np <- (rho*fit.S.V1*(fit.Y1.V1.np)*(1-fit.S.V0) - 
+                fit.S.V0*(fit.Y1.V0.np)*(1-fit.S.V1))/
+    (rho*fit.S.V1*(1-fit.S.V0) - fit.S.V0*(1-fit.S.V1))
+  m0.np <- loess(Y~.,data=data.frame(Y,X),subset=(Z==0&S==1),degree=1)
+  fit.Y0.np <- predict(m0.np,newdata=data.frame(Y,X))
+  mu0X.np <- fit.Y0.np
+  if (kap!=1){
+    m.Y0.V1.np <- loess(Y~.,data=data.frame(Y,X),subset=(V==1&Z==0&S==1),degree=1)
+    m.Y0.V0.np <- loess(Y~.,data=data.frame(Y,X),subset=(V==0&Z==0&S==1),degree=1)
+    fit.Y0.V1.np <- predict(m.Y0.V1.np, newdata=data.frame(Y,X))
+    fit.Y0.V0.np <- predict(m.Y0.V0.np, newdata=data.frame(Y,X)) 
+    mu0X.np <- (kap*fit.Y0.V1.np-fit.Y0.V0.np)/(kap-1)
+  }
+  
+  rho0 <- (1-fit.S.V1)/(1-fit.S.V0)/(fit.S.V1-fit.S0.V1)*(fit.S.V0-fit.S0.V0)
+  mu1X.wzr <- (rho0*fit.S.V1*fit.Y1.V1*(1-fit.S.V0) - fit.S.V0*fit.Y1.V0*(1-fit.S.V1))/
+    (rho0*fit.S.V1*(1-fit.S.V0) - fit.S.V0*(1-fit.S.V1))
+  
+  if (length(unique(Y))<=2) {
+    mu1X = (mu1X+1-abs(mu1X-1))/2
+    mu1X = (mu1X+abs(mu1X))/2
+    mu1X.wzr = (mu1X.wzr+1-abs(mu1X.wzr-1))/2
+    mu1X.wzr = (mu1X.wzr+abs(mu1X.wzr))/2
+    mu1X.np = (mu1X.np+1-abs(mu1X.np-1))/2
+    mu1X.np = (mu1X.np+abs(mu1X.np))/2
+    mu0X.np = (mu0X.np+1-abs(mu0X.np-1))/2
+    mu0X.np = (mu0X.np+abs(mu0X.np))/2
+  }
+  mu1 <- mean(mu1X)
+  mu0 <- mean(mu0X)
+  mu1.sc <- mean(fit.Y1)
+  mu0.sc <- mu0
+  mu1.wzr <- mean(mu1X.wzr)
+  mu0.wzr <- mu0
+  RD <- mu1-mu0
+  Yhat <- Z*mu1X + (1-Z)*mu0X
+  RD <- as.numeric(coef(lm(Yhat~1+Z+X+ZX))[2])
+  Yhat <- Z*mu1X.np + (1-Z)*mu0X.np
+  RD.np <- as.numeric(coef(lm(Yhat~1+Z+X+ZX))[2])
+  sacec <- sum((mu1X-mu0X)*fit.S0*(1-fit.Z))/sum(fit.S0*(1-fit.Z))
+  RD.sc <- mu1.sc - mu0.sc
+  RD.wzr <- mu1.wzr - mu0.wzr
+
+  if (need.variance==TRUE){
+    m.V <- glm(V~., family='binomial', data=data.frame(V,X))
+    fit.V <- predict(m.V, newdata=data.frame(V,X), type='response')
+    fit.S <- predict(m.S, newdata=data.frame(S,Z,X,ZX,V,ZV), type='response')
+    p1 = p0111 = (1-fit.V)*fit.Z*fit.S.V0*fit.Y1.V0
+    p2 = p0110 = (1-fit.V)*fit.Z*fit.S.V0*(1-fit.Y1.V0)
+    p3 = p1111 = fit.V*fit.Z*fit.S.V1*fit.Y1.V1
+    p4 = p1110 = fit.V*fit.Z*fit.S.V1*(1-fit.Y1.V1)
+    p5 = p010s = (1-fit.V)*fit.Z*(1-fit.S.V0)
+    p6 = p110s = fit.V*fit.Z*(1-fit.S.V1)
+    p7 = ps011 = (1-fit.Z)*fit.S0*fit.Y0
+    p8 = ps010 = (1-fit.Z)*fit.S0*(1-fit.Y0)
+    p12 = p1+p2
+    p34 = p3+p4
+    p56 = p5+p6
+    p78 = p7+p8
+    p24 = p2+p4
+    p13 = p1+p3
+    p1234 = p12+p34
+    p111 = fit.Z*fit.S*fit.Y1
+    p110 = fit.Z*fit.S*(1-fit.Y1)
+    p011 = (1-fit.Z)*fit.S0*fit.Y0
+    p010 = (1-fit.Z)*fit.S0*(1-fit.Y0)
+    p11s = fit.Z*fit.S
+    p01s = (1-fit.Z)*fit.S0
+    vu = (p5^4*p3*p4*p34+p5*p6*p56*(p2*p3-p4*p1)^2-2*p5^3*p3*p4*p12*p6
+          +p5^2*p6^2*(p2*p3*(p2+p3)+p4*p1*(p4+p1))
+          -2*p6^3*p1*p2*p34*p5+p6^4*p1*p2*p12)
+    var1 = mean(vu/(p34*p5-p12*p6)^4)/N
+    var0 = mean(p7*p8/p78^3)/N
+    SE = sqrt(var1+var0)
+    za = -qnorm(alpha/2)
+    ci_l0 = expit(logit(mu0)-za*sqrt(mean(p78/(p8*p7*N))))
+    ci_u0 = expit(logit(mu0)+za*sqrt(mean(p78/(p8*p7*N))))
+    ci_l1 = expit(logit(mu1)-za*
+                    sqrt(mean(vu/(p3*p5-p1*p6)^2/(p4*p5-p2*p6)^2)/N))
+    ci_u1 = expit(logit(mu1)+za*
+                    sqrt(mean(vu/(p3*p5-p1*p6)^2/(p4*p5-p2*p6)^2)/N))
+    ci_l1.sc =  expit(logit(mu1.sc)-za*sqrt(mean(p1234/(p24*p13*N))))
+    ci_u1.sc =  expit(logit(mu1.sc)+za*sqrt(mean(p1234/(p24*p13*N))))
+    if (is.na(ci_l0)) ci_l0=mu0
+    if (is.na(ci_l1)) ci_l1=mu0
+    if (is.na(ci_u0)) ci_u0=mu1
+    if (is.na(ci_u1)) ci_u1=mu1
+    if (ci_l0<0) ci_l0=0
+    if (ci_l1<0) ci_l1=0
+    if (1<ci_u0) ci_u0=1
+    if (1<ci_u1) ci_u1=1
+    ci_l <- RD - sqrt((ci_l1-mu1)^2+(ci_u0-mu0)^2)
+    ci_u <- RD + sqrt((ci_u1-mu1)^2+(ci_l0-mu0)^2)
+    var.sc1 = mean(p111*p110/p11s^3)/N
+    var.sc0 = mean(p011*p010/p01s^3)/N
+    SE.sc = sqrt(var.sc1+var.sc0)
+    ci_l0.sc = expit(logit(mu0.sc)-za*sqrt(mean(p78/(p8*p7*N))))
+    ci_u0.sc = expit(logit(mu0.sc)+za*sqrt(mean(p78/(p8*p7*N))))
+    ci_l1.sc = expit(logit(mu1.sc)-za*sqrt(mean(p1234/(p24*p13*N))))
+    ci_u1.sc = expit(logit(mu1.sc)+za*sqrt(mean(p1234/(p24*p13*N))))
+    ci_l1.sc =  expit(logit(mu1.sc)-za*sqrt(mean(p1234/(p24*p13*N))))
+    ci_u1.sc =  expit(logit(mu1.sc)+za*sqrt(mean(p1234/(p24*p13*N))))
+    if (is.na(ci_l0.sc)) ci_l0.sc=mu0.sc
+    if (is.na(ci_l1.sc)) ci_l1.sc=mu0.sc
+    if (is.na(ci_u0.sc)) ci_u0.sc=mu1.sc
+    if (is.na(ci_u1.sc)) ci_u1.sc=mu1.sc
+    if (ci_l0.sc<0) ci_l0.sc=0
+    if (ci_l1.sc<0) ci_l1.sc=0
+    if (1<ci_u0.sc) ci_u0.sc=1
+    if (1<ci_u1.sc) ci_u1.sc=1
+    ci_l.sc = RD.sc - sqrt((ci_l1.sc-mu1.sc)^2+(ci_u0.sc-mu0.sc)^2)
+    ci_u.sc = RD.sc + sqrt((ci_u1.sc-mu1.sc)^2+(ci_l0.sc-mu0.sc)^2)
+    SE.wzr = sqrt(as.numeric(sace(Z,S,Y,X,V,need.variance=TRUE)$sace.var))
+    return(list(sace=RD,sace.sc=RD.sc,sace.wzr=RD.wzr,sace.np=RD.np,
+                se=SE,ci=c(ci_l,ci_u),se.sc=SE.sc,ci.sc=c(ci_l.sc,ci_u.sc),
+                se.wzr=SE.wzr,sacec=sacec))
+  }
+  
+  if (!is.null(cond)){
+    cond <- t(t(cond)-mX)
+    colnames(cond) <- colnames(X)
+    if (method=='robust'){
+      CATE = mu1X - mu0X
+      m0 = glm(CATE~., data=data.frame(CATE,X))
+      csace = predict(m0, newdata=data.frame(cond),type='response')
+      CATEnp = mu1X - mu0X
+      m0.np = glm(CATEnp~., data=data.frame(CATEnp,X))
+      csace.np = predict(m0.np, newdata=data.frame(cond),type='response')
+    } else {
+    fit.S.V1 <- predict(m.S, newdata=data.frame(Z=1,cond,cond,V=1,ZV=1), type='response')
+    fit.S.V0 <- predict(m.S, newdata=data.frame(Z=1,cond,cond,V=0,ZV=0), type='response')
+    fit.S0.V1 <- predict(m.S, newdata=data.frame(Z=0,cond,cond-cond,V=1,ZV=0), type='response')
+    fit.S0.V0 <- predict(m.S, newdata=data.frame(Z=0,cond,cond-cond,V=0,ZV=0), type='response')
+    fit.Y1.V1 <- predict(m.Y, newdata=data.frame(Z=1,cond,cond,V=1,ZV=1), type='response')
+    fit.Y1.V0 <- predict(m.Y, newdata=data.frame(Z=1,cond,cond,V=0,ZV=0), type='response')
+    cfit.Y0 <- predict(m.Y0, newdata=data.frame(cond), type='response')
+    cmu1X <- (fit.S.V1*fit.Y1.V1*(1-fit.S.V0) - fit.S.V0*fit.Y1.V0*(1-fit.S.V1))/
+      (fit.S.V1*(1-fit.S.V0) - fit.S.V0*(1-fit.S.V1))
+    cmu0X <- cfit.Y0
+    fit.Y1.V1.np <- predict(m.Y1.V1.np,newdata=data.frame(cond))
+    fit.Y1.V0.np <- predict(m.Y1.V0.np,newdata=data.frame(cond))
+    cmu1X.np <- (fit.S.V1*(fit.Y1.V1.np)*(1-fit.S.V0) - 
+                   fit.S.V0*(fit.Y1.V0.np)*(1-fit.S.V1))/
+      (fit.S.V1*(1-fit.S.V0) - fit.S.V0*(1-fit.S.V1))
+    fit.Y0.np <- predict(m0.np,newdata=data.frame(cond))
+    cmu0X.np <- fit.Y0.np
+    if (length(unique(Y))<=2) {
+      cmu1X = (cmu1X+1-abs(cmu1X-1))/2
+      cmu1X = (cmu1X+abs(cmu1X))/2
+      cmu0X = (cmu0X+1-abs(cmu0X-1))/2
+      cmu0X = (cmu0X+abs(cmu0X))/2
+      cmu1X.np = (cmu1X.np+1-abs(cmu1X.np-1))/2
+      cmu1X.np = (cmu1X.np+abs(cmu1X.np))/2
+      cmu0X.np = (cmu0X.np+1-abs(cmu0X.np-1))/2
+      cmu0X.np = (cmu0X.np+abs(cmu0X.np))/2
+    }
+    csace <- cmu1X-cmu0X
+    csace.np <- cmu1X.np-cmu0X.np
+    }
+    return(list(sace=RD,sace.sc=RD.sc,sace.wzr=RD.wzr,
+                sace.np=RD.np,sacec=sacec,
+                csace=csace,csace.np=csace.np))
+  }
+  
+  return(list(sace=RD,sace.sc=RD.sc,sace.wzr=RD.wzr,
+              sace.np=RD.np,sacec=sacec))
+}
