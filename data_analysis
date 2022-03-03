@@ -1,0 +1,245 @@
+#setwd('/')
+
+## Read data
+dat <- read.csv('leukemia_PKU.csv')
+Z <- as.numeric(dat$HLABHWD=='0') 
+DRSEX <- as.numeric(dat$DRSEX11=='3'|dat$DRSEX11=='4')
+RELAPSE <- as.numeric(dat$RELAPSE)
+TRM <- as.numeric(dat$TRM)
+N = length(Z)
+V = as.numeric(dat$age>27)
+S = as.numeric(TRM==0|dat$TRMT>730)
+Y = 1-(RELAPSE==0|dat$RELAPSET>730)
+X1 = as.numeric(dat$MRDPRET==0) #Neg=1
+X2 = DRSEX                      #M=1
+X3 = as.numeric(dat$SEX1)       #M=1
+X = cbind(X1,X2,X3)
+colnames(X) = c('MRD','DRSEX','SEX')
+
+SACE(Z,S,Y,X,V)
+
+
+##Bootstrap
+
+B = 1000
+scb = rep(NA,B)
+wzrb = rep(NA,B)
+propb = rep(NA,B)
+propnpb = rep(NA,B)
+sacecb = rep(NA,B)
+for (b in 1:B){
+  set.seed(b)
+  ss <- sample(N,replace=TRUE)
+  fit <- SACE(Z,S,Y,X,V,subset=ss)
+  scb[b] = fit$sace.sc
+  wzrb[b] = fit$sace.wzr
+  propb[b] = fit$sace
+  propnpb[b] = fit$sace.np
+  sacecb[b] = fit$sacec
+}
+scb = sort(na.omit(scb))
+wzrb = sort(na.omit(wzrb))
+propb = sort(na.omit(propb))
+propnpb = sort(na.omit(propnpb))
+sacecb = sort(na.omit(sacecb))
+n1 = length(scb)
+n2 = length(wzrb)
+n3 = length(propb)
+n4 = length(propnpb)
+n5 = length(sacecb)
+scb[c(0.025*n1,0.975*n1+1)]
+wzrb[c(0.025*n2,0.975*n2+1)]
+propb[c(0.025*n3,0.975*n3+1)]
+propnpb[c(0.025*n4,0.975*n4+1)]
+sacecb[c(0.025*n5,0.975*n5+1)]
+
+
+## Sensitivity analysis on nondifferential substitution
+
+r = seq(-1,1,0.1)
+K = length(r)
+rho = exp(r)
+pointest = rep(NA,K)
+pointestnp = rep(NA,K)
+lower = rep(NA,K)
+upper = rep(NA,K)
+lowernp = rep(NA,K)
+uppernp = rep(NA,K)
+for (k in 1:K){
+  fit = SACE(Z,S,Y,X,V,rho=rho[k],kap=exp(-1))
+  pointest[k] = fit$sace
+  pointestnp[k] = fit$sace.np
+#  B = 1000
+#  estb = rep(NA,B)
+#  estnpb = rep(NA,B)
+#  for (b in 1:B){
+#    fitb = try(SACE(Z,S,Y,X,V,rho=rho[k],subset=sample(N,replace=TRUE)))
+#    if('try-error' %in% class(fitb)) next
+#    estb[b] = fitb$sace
+#    estnpb[b] = fitb$sace.np
+#  }
+#  estb = sort(na.omit(estb))
+#  estnpb = sort(na.omit(estnpb))
+#  n1 = length(estb)
+#  n2 = length(estnpb)
+#  lower[k] = estb[0.025*n1]
+#  upper[k] = estb[0.975*n1+1]
+#  lowernp[k] = estnpb[0.025*n2]
+#  uppernp[k] = estnpb[0.975*n2+1]
+  print(k)
+}
+plot(r,pointest,type='l',lwd=2,xlab=expression(log(rho)),ylab='SACE',
+     ylim=c(-0.3,0.85),col='darkcyan')
+abline(h=0,lty=2)
+points(r,pointest,type='l',lwd=3,col='darkcyan')
+points(r,pointestnp,type='l',lwd=3,col='blue')
+#points(r,lower,type='l',lwd=1.5,lty=2,col='darkcyan')
+#points(r,upper,type='l',lwd=1.5,lty=2,col='darkcyan')
+#points(r,lowernp,type='l',lwd=1.5,lty=2,col='blue')
+#points(r,uppernp,type='l',lwd=1.5,lty=2,col='blue')
+legend('topleft', cex=0.7, lty=c(1,1), 
+       legend=c('Parametric','Nonparametric'),
+       col=c('darkcyan','blue'))
+
+
+## Sensitivity analysis on monotonicity
+
+r = seq(-1,1,0.1)
+K = length(r)
+rho = exp(r)
+kap = c(exp(-1),exp(-0.5),exp(0),exp(0.5),exp(1))
+pointest = rep(NA,K)
+j = 1  # or 2,3,4,5
+for (k in 1:K){
+  fit = SACE(Z,S,Y,X,V,rho=rho[k],kap=kap[j])
+  pointest[k] = fit$sace
+  pointestnp[k] = fit$sace.np
+}
+plot(r,pointest,type='l',lwd=2,xlab=expression(log(kappa)),ylab='SACE',
+       ylim=c(-0.3,0.85))
+abline(h=0,lty=2)
+for (j in 1:5){
+for (k in 1:K){
+  fit = SACE(Z,S,Y,X,V,rho=rho[k],kap=kap[j])
+  pointest[k] = fit$sace
+  pointestnp[k] = fit$sace.np
+}
+points(r,pointest,type='l',lwd=2,col=j+1)
+}
+legend('topleft', cex=0.7, lty=c(1,1), col=2:6,
+       legend=c(expression(kappa=exp(-1)),expression(kappa=exp(-0.5)),expression(kappa=exp(0)),
+                expression(kappa=exp(0.5)),expression(kappa=exp(1))))
+
+
+# conditional bootstrap, Table 4
+
+cond = rbind(c(0,0,0),c(0,0,1),c(0,1,0),c(0,1,1),c(1,0,0),c(1,0,1),c(1,1,0),c(1,1,1))
+f = SACE(Z,S,Y,X,V,cond=cond)
+f
+B = 1000
+propb = matrix(NA,B,8)
+propnpb = matrix(NA,B,8)
+for (b in 1:B){
+  set.seed(b)
+  ss <- sample(N,replace=TRUE)
+  fit <- SACE(Z,S,Y,X,V,subset=ss,cond=cond)
+  propb[b,] = fit$csace
+  propnpb[b,] = fit$csace.np
+}
+for (c in 1:8){
+  propbc = sort(na.omit(propb[,c]))
+  propnpbc = sort(na.omit(propnpb[,c]))
+  n1 = length(propbc)
+  n2 = length(propnpbc)
+  print(round(c(f$csace[c],sd(propbc),propbc[c(0.025*n1,0.975*n1+1)],
+          f$csace.np[c],sd(propnpbc),propnpbc[c(0.025*n2,0.975*n2+1)]),4))
+}
+
+
+## Stratification by covariates to estimate CSACE, Table 4
+
+sore <- function(Z,S,Y,V,alpha=0.05,subset=NULL){
+  if (is.null(subset)) subset=rep(TRUE,length(Z))
+  Z = Z[subset]
+  S = S[subset]
+  Y = Y[subset]
+  V = V[subset]
+  N <- length(Z)
+  p1 = p0111 = mean(V==0&Z==1&S==1&Y==1)
+  p2 = p0110 = mean(V==0&Z==1&S==1&Y==0)
+  p3 = p1111 = mean(V==1&Z==1&S==1&Y==1)
+  p4 = p1110 = mean(V==1&Z==1&S==1&Y==0)
+  p5 = p010s = mean(V==0&Z==1&S==0)
+  p6 = p110s = mean(V==1&Z==1&S==0)
+  p7 = ps011 = mean(Z==0&S==1&Y==1)
+  p8 = ps010 = mean(Z==0&S==1&Y==0)
+  ps010 = mean(Z==0&S==1&Y==0)
+  p111s = p1111 + p1110
+  ps111 = p1111 + p0111
+  ps110 = p1110 + p0110
+  p011s = p0111 + p0110
+  ps01s = ps011 + ps010
+  ps10s = p110s + p010s
+  ps11s = p111s + p011s
+  mu1 = (p0111*p110s-p1111*p010s)/(p011s*p110s-p111s*p010s)
+  mu0 = ps011/ps01s
+  if (!is.na(mu1)){
+    if (mu1>1) mu1=1
+    if (mu1<0) mu1=0
+  }
+  RD = mu1 - mu0
+  return(RD)
+}
+
+sc <- function(Z,S,Y,V,alpha=0.05,subset=NULL){
+  if (is.null(subset)) subset=rep(TRUE,length(Z))
+  Z = Z[subset]
+  S = S[subset]
+  Y = Y[subset]
+  V = V[subset]
+  N <- length(Z)
+  p111 = mean(Z==1&S==1&Y==1)
+  p110 = mean(Z==1&S==1&Y==0)
+  p11s = p111 + p110
+  p011 = mean(Z==0&S==1&Y==1)
+  p010 = mean(Z==0&S==1&Y==0)
+  p01s = p011 + p010
+  mu1 = p111/p11s
+  mu0 = p011/p01s
+  if (is.na(mu1)) mu1=0
+  if (is.na(mu0)) mu0=0
+  if (mu1>1) mu1=1
+  if (mu1<0) mu1=0
+  if (mu0>1) mu0=1
+  if (mu0<0) mu0=0
+  RD = mu1 - mu0
+  return(RD)
+}
+
+for (c in 1:8){
+  subs = which(X1==cond[c,1]&X2==cond[c,2]&X3==cond[c,3])
+  n = length(subs)
+  st = rep(NA,B)
+  for (b in 1:B){
+    set.seed(b)
+    ss = sample(n,replace=TRUE)
+    st[b] = sore(Z,S,Y,V,subset=subs[ss])
+  }
+  st = sort(na.omit(st))
+  n = length(st)
+  print(round(c(sd(st),st[c(0.025*n,0.975*n+1)]),4))
+}
+# c=1, use survivor-case analysis
+c = 1
+subs = which(X1==cond[c,1]&X2==cond[c,2]&X3==cond[c,3])
+n = length(subs)
+st = rep(NA,B)
+for (b in 1:B){
+  set.seed(b)
+  ss = sample(n,replace=TRUE)
+  st[b] = sc(Z,S,Y,V,subset=subs[ss])
+}
+st = sort(na.omit(st))
+n = length(st)
+print(round(c(sd(st),st[c(0.025*n,0.975*n+1)]),4))
+
