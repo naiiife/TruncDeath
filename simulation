@@ -1,0 +1,121 @@
+
+iter <- 1000
+sizel = c(400,1200,3000)
+a1l <- c(0,1,1,1)  #extent of nonrandomization
+a2l <- c(0,0,0,0)  #extent of nonrandomization, sensitivity!
+b1l <- c(3,3,3,2)  #strength of V
+b2l <- c(0,0,0,0)  #sensitivity!
+c1l <- c(3,3,3,3)
+c2l <- c(0,3,0,0)
+
+for (samplesize in 1:3){
+  size = sizel[samplesize]
+  for (setting in 1:4){
+    a1 = a1l[setting]
+    a2 = a2l[setting]
+    b1 = b1l[setting]
+    b2 = b2l[setting]
+    c1 = c1l[setting]
+    c2 = c2l[setting]
+    Prop = rep(NA,iter)
+    PropNP = rep(NA,iter)
+    WZR = rep(NA,iter)
+    SC = rep(NA,iter)
+    for (i in 1:iter){
+      dat = generatedata_cont(size,a1,a2,b1,b2,c1,c2,seeds=3000*setting+i)
+      #TrueRD = dat$TrueRD
+      TrueRD = 2
+      Z = dat$Z
+      S = dat$S
+      Y = dat$Y
+      X = dat$X
+      V = dat$V
+      res = SACE(Z,S,Y,X[,-1],V)
+      Prop[i] = res$sace - TrueRD
+      PropNP[i] = res$sace.np - TrueRD
+      WZR[i] = res$sace.wzr - TrueRD
+      SC[i] = res$sace.sc - TrueRD
+    }
+    restable = na.omit(cbind(SC,WZR,Prop,PropNP))
+    SC = na.omit(restable[,1])
+    WZR = na.omit(restable[,2])
+    Prop = na.omit(restable[,3])
+    PropNP = na.omit(restable[,4])
+    
+    avebias.prop = mean(Prop)
+    avebias.propNP = mean(PropNP)
+    avebias.wzr = mean(WZR)
+    avebias.sc = mean(SC)
+    avebiasse.prop = sd(Prop)
+    avebiasse.propNP = sd(PropNP)
+    avebiasse.wzr = sd(WZR)
+    avebiasse.sc = sd(SC)
+    
+    absbias.prop = mean(abs(Prop))
+    absbias.propNP = mean(abs(PropNP))
+    absbias.wzr = mean(abs(WZR))
+    absbias.sc = mean(abs(SC))
+    absbiasse.prop = sd(abs(Prop))
+    absbiasse.propNP = sd(abs(PropNP))
+    absbiasse.wzr = sd(abs(WZR))
+    absbiasse.sc = sd(abs(SC))
+    
+    rest = c(avebias.sc, avebias.wzr, avebias.prop, avebias.propNP,
+             absbias.sc, absbias.wzr, absbias.prop, absbias.propNP)
+    restse = c(avebiasse.sc, avebiasse.wzr, avebiasse.prop, avebiasse.propNP,
+               absbiasse.sc, absbiasse.wzr, absbiasse.prop, absbiasse.propNP)
+    boxplot(restable, ylim=c(-2,2), pch=20)
+    abline(h=0, lty=2)
+    print(setting)
+    print(round(rest,4))
+    print(round(restse,4))
+  }
+}
+
+
+
+
+library(ggplot2)
+
+size <- 1200
+restable <- data.frame(Bias=double(),
+                       Setting=integer(),
+                       Method=character(),stringsAsFactors=FALSE)
+for (setting in 1:4){
+  a1 = a1l[setting]
+  a2 = a2l[setting]
+  b1 = b1l[setting]
+  b2 = b2l[setting]
+  c1 = c1l[setting]
+  c2 = c2l[setting]
+  
+  for (i in 1:iter){
+    dat = generatedata_cont(size,a1,a2,b1,b2,c1,c2,seeds=1000*setting+i)
+    #TrueRD = dat$TrueRD
+    TrueRD = 2
+    Z = dat$Z
+    S = dat$S
+    Y = dat$Y
+    X = dat$X
+    V = dat$V
+    res = SACE(Z,S,Y,X[,-1],V)
+    #res = sace(Z,S,Y,V)
+    
+    restable[nrow(restable)+1,] <- c(res$sace.sc - TrueRD, setting, 'SC')
+    restable[nrow(restable)+1,] <- c(res$sace.wzr - TrueRD, setting, 'WZR')
+    restable[nrow(restable)+1,] <- c(res$sace - TrueRD, setting, 'Prop(PE)')
+    restable[nrow(restable)+1,] <- c(res$sace.np - TrueRD, setting, 'Prop(NPE)')
+  }
+}
+# Change bar order grouped box-plot (fill-variable), prepare for plot
+restable <- transform(restable, Bias = as.numeric(Bias), 
+                      Setting = as.factor(Setting), 
+                      Method = ordered(as.factor(Method), levels = c('SC', 'WZR', 'Prop(PE)','Prop(NPE)')))
+restable <- na.omit(restable)
+
+bp = ggplot(restable, aes(x=Setting, y=Bias, fill=Method)) + 
+  geom_boxplot(outlier.size=0.5) + 
+  coord_cartesian(ylim = c(-0.3, 0.3)) + 
+  geom_hline(aes(yintercept=0), colour="#990000", linetype="dashed")
+  #scale_fill_grey(start=0.3, end=0.9) + theme_classic()
+bp
