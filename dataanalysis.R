@@ -55,7 +55,7 @@ for (r in 1:R){
     fit.full = sace_obs(Z,S,Y,X,V,sensitivity=-log(1-rr)/log(2))
     fit.dic = sace_obs(Z,S,Y,X,V2,sensitivity=-log(1-rr)/log(2))
     ate.full[r] = fit.full$sace
-    ate.dic[r] = fit.pos$sace
+    ate.dic[r] = fit.dic$sace
   cat(r,'')
 }
 plot(1:R/20-1,ate.full,type='l',lwd=2,col='black',ylim=c(-0.25,0.7),ylab='SACEC estimate',
