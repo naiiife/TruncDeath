@@ -7,7 +7,6 @@ logit <- function(x) log(x/(1-x))
 
 sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
                      group='MNN', link='linear', sensitivity=0){
-  ## group=c('subclass','MNN')
   ## robust=c('AIPW','regression','DR')
   ## link=c('iss','ss','oss','ross',linear')
   V = as.matrix(V)
@@ -30,10 +29,17 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
   q = dim(V)[2]
   p = dim(X)[2]
   R = rep(1,N)
-  for (j in 1:q){
-    vj = V[,j]
-    cv = lm(vj~.,data=data.frame(vj,X))
-    R = R*(vj-predict(cv,newdata=data.frame(vj,X)))
+  if (!is.null(X)){
+    for (j in 1:q){
+      vj = V[,j]
+      cv = lm(vj~.,data=data.frame(vj,X))
+      R = R*(vj-predict(cv,newdata=data.frame(vj,X)))
+    }
+  } else {
+    for (j in 1:q){
+      vj = V[,j]
+      R = R*(vj-mean(vj))
+    }
   }
   V = as.numeric(R)
   s1 = glm(S~., family='binomial', data=data.frame(S,V,X)[Z==1,])
@@ -76,10 +82,10 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
     fs1n = fs1[neighbor]
     rhon = rho[neighbor]
     Vn = V[neighbor]
-    if (link=='iss') wu = exp(betav*Vn)*rhon*(1/fs1n-mean(na.omit(1/fs1n)))
-    if (link=='ss') wu = exp(betav*Vn)*rhon*(fs1n-mean(na.omit(fs1n)))
-    if (link=='oss') wu = exp(betav*Vn)*rhon*(fs1n/(1-fs1n)-mean(na.omit(fs1n/(1-fs1n))))
-    if (link=='ross') wu = exp(betav*Vn)*rhon*(sqrt(fs1n/(1-fs1n))-mean(na.omit(sqrt(fs1n/(1-fs1n)))))
+    if (link=='iss') wup = wu = exp(betav*Vn)*rhon*(1/fs1n-mean(na.omit(1/fs1n)))
+    if (link=='ss') wup = wu = exp(betav*Vn)*rhon*(fs1n-mean(na.omit(fs1n)))
+    if (link=='oss') wup = wu = exp(betav*Vn)*rhon*(fs1n/(1-fs1n)-mean(na.omit(fs1n/(1-fs1n))))
+    if (link=='ross') wup = wu = exp(betav*Vn)*rhon*(sqrt(fs1n/(1-fs1n))-mean(na.omit(sqrt(fs1n/(1-fs1n)))))
     if (link=='linear') {
       wu = exp(betav*Vn)*rhon*(Vn-mean(Vn))
       wup = exp(betav*Vn)*rhon*Vn*(Vn-mean(Vn))
@@ -97,18 +103,14 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
   Gam0 = as.numeric(G%*%(summary(m0)$cov.unscaled*mean(residuals(m0)^2))%*%t(G))
   
   fY = w*fw*bw - (1-Z)*S*(Y-fm0)
-  #fY = sort(w*fw*bw - fy0*bw)
-  fYdr = w*fwdr*bw
   fYreg = w*Ew*bw
   n = length(fY)
   RD = mean(fY)/mean(S*(1-Z))
   vr = var(fY)/mean(S*(1-Z))^2/N
   vrc = vr + Gam1 + Gam0
-  RDdr = mean(fYdr)/mean(S*(1-Z))
-  vrdr = var(fYdr)/mean(S*(1-Z))^2/N
   RDreg = mean(fYreg)/mean(S*(1-Z))
   vrreg = var(fYreg)/mean(S*(1-Z))^2/N
   
-  return(list(sace=RD, se=sqrt(vr), sec=sqrt(vrc), sacedr=RDdr, sedr=sqrt(vrdr),
+  return(list(sace=RD, se=sqrt(vr), sec=sqrt(vrc),
               sacereg=RDreg, sereg=sqrt(vrreg)))
 }
