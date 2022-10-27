@@ -42,20 +42,20 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
     }
   }
   V = as.numeric(R)
-  s1 = glm(S~., family='binomial', data=data.frame(S,V,X)[Z==1,])
+  s1 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==1,])
   betav = coef(s1)['V']
   rho = exp(betav*sensitivity*V)
-  fs1 = as.numeric(predict(s1, newdata=data.frame(S,V,X), type='response'))
-  s0 = glm(S~., family='binomial', data=data.frame(S,V,X)[Z==0,])
-  fs0 = as.numeric(predict(s0, newdata=data.frame(S,V,X), type='response'))
-  e = glm(Z~., family='binomial', data=data.frame(Z,V,X))
-  fe = as.numeric(predict(e, newdata=data.frame(Z,V,X), type='response'))
+  fs1 = as.numeric(predict(s1, newdata=data.frame(cbind(S,V,X)), type='response'))
+  s0 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==0,])
+  fs0 = as.numeric(predict(s0, newdata=data.frame(cbind(S,V,X)), type='response'))
+  e = glm(Z~., family='binomial', data=data.frame(cbind(Z,V,X)))
+  fe = as.numeric(predict(e, newdata=data.frame(cbind(Z,V,X)), type='response'))
   
   #fs1X = fs1*X
-  m1 = glm(Y~., data=data.frame(Y,V,X)[Z==1&S==1,])
-  fm1 = as.numeric(predict(m1,newdata=data.frame(Y,V,X),type='response'))
-  m0 = glm(Y~., data=data.frame(Y,V,X)[Z==0&S==1,])
-  fm0 = as.numeric(predict(m0,newdata=data.frame(Y,V,X),type='response'))
+  m1 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1,])
+  fm1 = as.numeric(predict(m1,newdata=data.frame(cbind(Y,V,X)),type='response'))
+  m0 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1,])
+  fm0 = as.numeric(predict(m0,newdata=data.frame(cbind(Y,V,X)),type='response'))
   
   Nt0 = 1:N
   neighbor = 1:N
@@ -68,8 +68,9 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
   bw0 = (1-fe)*fs0
   bw = bw0
   
-  CX = solve(cov(X))
+  if (!is.null(X)) CX = solve(cov(X))
   for (i in 1:N){
+    if (!is.null(X)){
     r = r0
     Xi = X - X + rep(1,N)%*%t(X[i,])
     M = diag((X-Xi)%*%CX%*%t(X-Xi))
@@ -78,6 +79,9 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
       neighbor = which(M<r)
       if (length(neighbor)>10 & sd(V[neighbor])>0) break
       r = r*1.2
+    }
+    } else {
+      neighbor = 1:N
     }
     fs1n = fs1[neighbor]
     rhon = rho[neighbor]
@@ -95,7 +99,6 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
     v[i] = mean(wu)
     bw[i] = mean(bw0[neighbor])
   }
-  
   Gam1 = mean(w*(V*v-wp)/v^2*bw/mean((1-Z)*S)*(fm1-fm0))^2*summary(s1)$coefficients['V',2]^2
   w = w/v
   Rm = w*bw/mean((1-Z)*S)-(1-fe)*fs0/mean((1-Z)*S)
