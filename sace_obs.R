@@ -68,8 +68,11 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
   bw0 = (1-fe)*fs0
   bw = bw0
   
-  X = as.matrix(X)
-  if (!is.null(X)) CX = solve(as.matrix(var(X)))
+  
+  if (!is.null(X)) {
+    X = as.matrix(X)
+    CX = solve(as.matrix(var(X)))
+  }
   for (i in 1:N){
     if (!is.null(X)){
     r = r0
