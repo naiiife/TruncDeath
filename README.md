@@ -23,8 +23,8 @@ Main function to estimate the survivor average causal effect.
     Outputs
     sace: Estimated survivor average causal effect using augmented inverse probability weighting
     sacereg: Estimated survivor average causal effect using regression
-    se: Anti-conservative pseudo confidence interval
-    sec: Conservative asymptotic confidence interval
+    se: Standard error (not considering uncertainty of fitted models)
+    sec: Conservative standard error
 
 ## saceobs_simulation.R
 Simulation of estimation and sensitivity analysis. Outputs are bias and boxplots.
