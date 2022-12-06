@@ -62,7 +62,7 @@ for (vp in seq(1,0.5,length=11)){
     Y = dat$Y
     V = dat$V
     RD = dat$TrueRD
-    fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+    fit = sace_obs(Z,S,Y,X,V,link='linear')
     bias.aipw[b] = fit$sace - RD
     bias.reg[b] = fit$sacereg - RD
     bias.sc[b] = mean(Y[S==1&Z==1]) - mean(Y[S==1&Z==0]) - RD
