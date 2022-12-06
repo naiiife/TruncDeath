@@ -6,9 +6,8 @@ logit <- function(x) log(x/(1-x))
 # Estimation Function
 
 sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
-                     group='MNN', link='linear', sensitivity=0){
-  ## robust=c('AIPW','regression','DR')
-  ## link=c('iss','ss','oss','ross',linear')
+                     link='linear', crossfit=FALSE, sensitivity=0){
+  ## link=c('iss','ss','oss','ross','linear')
   V = as.matrix(V)
   if (!is.null(subset)){
     Z = Z[subset]
@@ -45,18 +44,64 @@ sace_obs <- function(Z,S,Y,X=NULL,V, subset=NULL, r0=NULL,
   s1 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==1,])
   betav = coef(s1)['V']
   rho = exp(betav*sensitivity*V)
-  fs1 = as.numeric(predict(s1, newdata=data.frame(cbind(S,V,X)), type='response'))
-  s0 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==0,])
-  fs0 = as.numeric(predict(s0, newdata=data.frame(cbind(S,V,X)), type='response'))
-  e = glm(Z~., family='binomial', data=data.frame(cbind(Z,V,X)))
-  fe = as.numeric(predict(e, newdata=data.frame(cbind(Z,V,X)), type='response'))
   
-  #fs1X = fs1*X
-  m1 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1,])
-  fm1 = as.numeric(predict(m1,newdata=data.frame(cbind(Y,V,X)),type='response'))
-  m0 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1,])
-  fm0 = as.numeric(predict(m0,newdata=data.frame(cbind(Y,V,X)),type='response'))
-  
+  if (crossfit){
+    fs1 = fs0 = fe = fm1 = fm0 = rep(0,N)
+    ss = rep(TRUE,N)
+    while(TRUE){
+      ssplit = sample(N)[1:(N/2)]
+      if (sum(Z*S)*sum(Z*(1-S))*sum((1-Z)*S)>0) break
+    }
+    ss[ssplit] = FALSE
+    
+    s1 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==1&ss,])
+    fs1[!ss] = as.numeric(predict(s1, newdata=data.frame(cbind(S,V,X))[!ss,], type='response'))
+    s0 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==0&ss,])
+    fs0[!ss] = as.numeric(predict(s0, newdata=data.frame(cbind(S,V,X))[!ss,], type='response'))
+    e = glm(Z~., family='binomial', data=data.frame(cbind(Z,V,X))[ss,])
+    fe[!ss] = as.numeric(predict(e, newdata=data.frame(cbind(Z,V,X))[!ss,], type='response'))
+    
+    m1 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1&ss,])
+    ws = 1/sqrt(exp(predict(lm(log(residuals(m1)^2)~cbind(V,X)[Z==1&S==1&ss,]))))
+    m1 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1&ss,], weights=ws)
+    fm1[!ss] = as.numeric(predict(m1,newdata=data.frame(cbind(Y,V,X))[!ss,]))
+    m0 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1&ss,])
+    ws = 1/sqrt(exp(predict(lm(log(residuals(m0)^2)~cbind(V,X)[Z==0&S==1&ss,]))))
+    m0 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1&ss,], weights=ws)
+    fm0[!ss] = as.numeric(predict(m0,newdata=data.frame(cbind(Y,V,X))[!ss,]))
+    
+    s1 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==1&!ss,])
+    fs1[ss] = as.numeric(predict(s1, newdata=data.frame(cbind(S,V,X))[ss,], type='response'))
+    s0 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==0&!ss,])
+    fs0[ss] = as.numeric(predict(s0, newdata=data.frame(cbind(S,V,X))[ss,], type='response'))
+    e = glm(Z~., family='binomial', data=data.frame(cbind(Z,V,X))[!ss,])
+    fe[ss] = as.numeric(predict(e, newdata=data.frame(cbind(Z,V,X))[ss,], type='response'))
+    
+    m1 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1&!ss,])
+    ws = 1/sqrt(exp(predict(lm(log(residuals(m1)^2)~cbind(V,X)[Z==1&S==1&!ss,]))))
+    m1 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1&!ss,], weights=ws)
+    fm1[ss] = as.numeric(predict(m1,newdata=data.frame(cbind(Y,V,X))[ss,]))
+    m0 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1&!ss,])
+    ws = 1/sqrt(exp(predict(lm(log(residuals(m0)^2)~cbind(V,X)[Z==0&S==1&!ss,]))))
+    m0 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1&!ss,], weights=ws)
+    fm0[ss] = as.numeric(predict(m0,newdata=data.frame(cbind(Y,V,X))[ss,]))
+  } else {
+    fs1 = as.numeric(predict(s1, newdata=data.frame(cbind(S,V,X)), type='response'))
+    s0 = glm(S~., family='binomial', data=data.frame(cbind(S,V,X))[Z==0,])
+    fs0 = as.numeric(predict(s0, newdata=data.frame(cbind(S,V,X)), type='response'))
+    e = glm(Z~., family='binomial', data=data.frame(cbind(Z,V,X)))
+    fe = as.numeric(predict(e, newdata=data.frame(cbind(Z,V,X)), type='response'))
+    
+    m1 = glm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1,])
+    ws = 1/sqrt(exp(predict(lm(log(residuals(m1)^2)~cbind(V,X)[Z==1&S==1,]))))
+    m1 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==1&S==1,], weights=ws)
+    fm1 = as.numeric(predict(m1,newdata=data.frame(cbind(Y,V,X))))
+    m0 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1,])
+    ws = 1/sqrt(exp(predict(lm(log(residuals(m0)^2)~cbind(V,X)[Z==0&S==1,]))))
+    m0 = lm(Y~., data=data.frame(cbind(Y,V,X))[Z==0&S==1,], weights=ws)
+    fm0 = as.numeric(predict(m0,newdata=data.frame(cbind(Y,V,X))))
+  }
+    
   Nt0 = 1:N
   neighbor = 1:N
   Ew = fm1 - fm0
