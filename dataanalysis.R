@@ -1,9 +1,9 @@
 ## Data Analysis
 library(tbd)
-#setwd('D:/PAPER/SACE/codes')
 dat = read.csv('leukemiaPKU.csv')
 attach(dat)
-Z <- as.numeric(dat$HLABHWD=='0')
+#Z <- as.numeric(dat$HLABHWD=='0')
+Z <- 1-TRANSPLANT
 RELAPSE <- as.numeric(dat$RELAPSE)
 TRM <- as.numeric(dat$TRM)
 N = length(Z)
@@ -17,12 +17,12 @@ X = cbind(X1,X2,X3)
 colnames(X) = c('MRD','CR','ALL')
 
 ## Estimation
-tbd::sace(Z,S,Y,X,V)
-sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
 summary(lm(Y~Z+X+V,subset=(S==1)))
+tbd::sace(Z,S,Y,X,V)
+sace_obs(Z,S,Y,X,V,link='linear')
 
 ## Bootstrap
-B = 1000
+B = 100
 ate.aipw.b = rep(NA,B)
 ate.reg.b = rep(NA,B)
 for (b in 1:B){
@@ -36,14 +36,13 @@ for (b in 1:B){
   if (mean(X3[ss])==0 | mean(X3[ss])==1) X3 = NULL
   X0 = cbind(X1,X2,X3)
   if (is.null(X0)) next
-  fit = sace_obs(Z,S,Y,X0,V,subset=ss,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X0,V,subset=ss,link='linear')
   ate.aipw.b[b] = fit$sace
   ate.reg.b[b] = fit$sacereg
   cat(b,'')
 }
-sd(ate.aipw.b)
-sd(ate.reg.b)
-boxplot(ate.aipw.b)
+sd(ate.aipw.b[abs(ate.aipw.b)<1])
+sd(ate.reg.b[abs(ate.reg.b)<1])
 
 ## Sensitivity analysis
 V2 = as.numeric(V>27)
