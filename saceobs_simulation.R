@@ -66,7 +66,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -98,7 +98,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -130,7 +130,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -170,7 +170,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -202,7 +202,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -234,7 +234,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -276,7 +276,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -308,7 +308,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -340,7 +340,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -422,7 +422,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -454,7 +454,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -486,7 +486,7 @@ for (b in 1:B){
   Y = dat$Y
   V = dat$V
   RD = dat$TrueRD
-  fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear')
+  fit = sace_obs(Z,S,Y,X,V,link='linear')
   bias.aipw[b] = fit$sace - RD
   bias.reg[b] = fit$sacereg - RD
   bias.dr[b] = fit$sacedr - RD
@@ -536,7 +536,7 @@ for (r in 1:R){
     V = dat$V
     RD = dat$TrueRD
     rr = r/20-1
-    fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear',sensitivity=-log(1-rr)/log(2))
+    fit = sace_obs(Z,S,Y,X,V,link='linear',sensitivity=-log(1-rr)/log(2))
     bias.aipw[b] = fit$sace - RD
     bias.reg[b] = fit$sacereg - RD
     bias.sc[b] = mean(Y[S==1&Z==1]) - mean(Y[S==1&Z==0]) - RD
@@ -576,7 +576,7 @@ for (r in 1:R){
     V = dat$V
     RD = dat$TrueRD
     rr = r/20-1
-    fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear',sensitivity=-log(1-rr)/log(2))
+    fit = sace_obs(Z,S,Y,X,V,link='linear',sensitivity=-log(1-rr)/log(2))
     bias.aipw[b] = fit$sace - RD
     bias.reg[b] = fit$sacereg - RD
     bias.sc[b] = mean(Y[S==1&Z==1]) - mean(Y[S==1&Z==0]) - RD
@@ -616,7 +616,7 @@ for (r in 1:R){
     V = dat$V
     RD = dat$TrueRD
     rr = r/20-1
-    fit = sace_obs(Z,S,Y,X,V,group='MNN',link='linear',sensitivity=-log(1-rr)/log(2))
+    fit = sace_obs(Z,S,Y,X,V,link='linear',sensitivity=-log(1-rr)/log(2))
     bias.aipw[b] = fit$sace - RD
     bias.reg[b] = fit$sacereg - RD
     bias.sc[b] = mean(Y[S==1&Z==1]) - mean(Y[S==1&Z==0]) - RD
