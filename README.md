@@ -29,6 +29,18 @@ Main function to estimate the survivor average causal effect.
 ## saceobs_simulation.R
 Simulation of estimation and sensitivity analysis. Outputs are bias and boxplots.
 
+## sensitivity_ns.R
+Sensitivity analysis for nondifferential substitution
+
+## sensitivity_sr.R
+Sensitivity analysis for substitution relevance
+
+## sensitivity_ni.R
+Sensitivity analysis for non-interaction
+
+## sensitivity_monotonicity.R
+Sensitivity analysis for monotonicity
+
 ## inference_simulation.R
 Comparison of confidence intervals.
 
